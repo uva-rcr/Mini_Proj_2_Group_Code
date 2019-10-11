@@ -66,7 +66,7 @@ void Thread3(void){
   }
 }
 
-int Testmain1(void){  // Testmain1
+int main(void){  // Testmain1
   OS_Init();          // initialize, disable interrupts
   PortE_Init();       // profile user threads
   NumCreated = 0 ;

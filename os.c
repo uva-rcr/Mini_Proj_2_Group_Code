@@ -101,7 +101,7 @@ void SetInitialStack(int i){
 // Outputs: none (does not return)
 void OS_Launch(unsigned long theTimeSlice){
 	NVIC_ST_RELOAD_R = theTimeSlice - 1; // reload value
-  NVIC_ST_CTRL_R = 0x00000007; // enable, core clock and interrupt arm
+	NVIC_ST_CTRL_R = 0x00000007; // enable, core clock and interrupt arm
   StartOS();                   // start on the first task
 }
 
@@ -114,14 +114,11 @@ void OS_Launch(unsigned long theTimeSlice){
 // output: none
 void OS_Suspend(void) { 
 	// Your code here
-	// 1) need to trigger SysTick interrupt trigger
+	// the bottom order is correct, 2 then 1. 
 	// 2) need to make sure the next thread starts with a new time slice (what's a time slice?)
-	
-	/*
-	STCURRENT = 0;// reset counter
-	INTCTRL = 0x04000000
-	*/
-	
+	NVIC_ST_CURRENT_R = 0; // reset counter so there is no extra time // setting the whole register equal to zero.
+	// 1) need to trigger SysTick interrupt trigger <-- DONE
+	NVIC_INT_CTRL_R = 0x04000000; 
 }
 
 //******** OS_AddThreads ***************
@@ -134,6 +131,13 @@ int OS_AddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void)){
   tcbs[0].next = &tcbs[1]; // 0 points to 1
   tcbs[1].next = &tcbs[2]; // 1 points to 2
   tcbs[2].next = &tcbs[0]; // 2 points to 0
+	
+	tcbs[0].available = 0;
+	tcbs[1].available = 0;
+	tcbs[2].available = 0;
+	
+	// available (free) to receive = 1
+
   SetInitialStack(0); Stacks[0][STACKSIZE-2] = (int32_t)(task0); // PC
   SetInitialStack(1); Stacks[1][STACKSIZE-2] = (int32_t)(task1); // PC
   SetInitialStack(2); Stacks[2][STACKSIZE-2] = (int32_t)(task2); // PC
@@ -151,30 +155,29 @@ int OS_AddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void)){
 // stack size must be divisable by 8 (aligned to double word boundary)
 static uint32_t ThreadNum = 0;
 int OS_AddThread(void(*task)(void), unsigned long stackSize, unsigned long priority) {
-	//&&&&&&&&&&&&&&&&&&&// Your code here
 	
-	/*
 	int32_t status;
   status = StartCritical();
-	int i = 0;
+	uint32_t i = ThreadNum;
+	// all start off as 1 as empty
+	// 0 means they are full (for available)
   
-	while((tcbs[i].available==1)){
+	while(tcbs[i].available == 0){
+		if(i == NUMTHREADS){ // we return 0 if problem happened
+			return 0;
+		}
 		i++;
 	}
 	
-	if(i == NUMTHREADS){ // we return 0 if problem happened
-		return 0;
-	}
-	
+	ThreadNum = i;
 	tcbs[i-1].next = &tcbs[i];
 	tcbs[i].next = &tcbs[0];
 	
   SetInitialStack(i); Stacks[i][STACKSIZE-2] = (int32_t)(task); // PC
 	
-	tcbs[i].available = 1; // available means the thread is being used, and is either in use or waiting to be used. 
-	
+	tcbs[i].available = 0; // 0 means it has been created... this is because of the implementation method. 
   EndCritical(status);
-  */
+	
   return 1;               // Successful
 }
 	 
@@ -202,6 +205,30 @@ void OS_Sleep(unsigned long sleepTime){
 // output: none
 void OS_Kill(void){
 	// Your code here
+	
+	/*
+	
+	// disable interrupt
+	int32_t status;
+  status = StartCritical();
+	
+	// 4. how do I mark it as free, is it simply 
+	
+	// 5. the part below focuses on eliminating the current thread from the linked list
+	int i = ThreadNum;
+	if(Os_Id<ThreadNum){ 
+		tcbs[i-1].next = &tcbs[i+1];
+	}else if(Os_Id==ThreadNum){
+		tcbs[i-1].next = &tcbs[0];
+	}else if(Os_Id==0){
+		tcbs[ThreadNum].next = &tcbs[1];
+	}
+	
+	
+	*/
+	
+	// return control by calling OS_Suspend();.
+	OS_Suspend();
 }	
 
 //******** OS_AddPeriodicThread *************** 
