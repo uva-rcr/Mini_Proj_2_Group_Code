@@ -204,32 +204,34 @@ void OS_Sleep(unsigned long sleepTime){
 // input:  none
 // output: none
 void OS_Kill(void){
-	// Your code here
-	
-	/*
-	
-	// disable interrupt
+	// -------Nat's code below-------
+	uint32_t i = OS_Id();
 	int32_t status;
-  status = StartCritical();
 	
-	// 4. how do I mark it as free, is it simply 
-	int i = OS_Id();
+	// Disable Interrupts
+	status = StartCritical();
+
+	//Mark old thread as free
 	tcbs[i].available = 1;
+
+	//Find and go to next thread (chris: I think we just have to find the next thread, not run it. Done below)
 	
-	// 5. the part below focuses on eliminating the current thread from the linked list
-	if(i<ThreadNum){ 
-		tcbs[i-1].next = &tcbs[i+1];
-	}else if(Os_Id==ThreadNum){
-		tcbs[i-1].next = &tcbs[0];
-	}else if(Os_Id==0){
+	// Unlink old thread and finds the next thread to be run at the same time 
+	// (chris: we are linking the previous tcb to the next tcb)
+	if (i == 0){
 		tcbs[ThreadNum].next = &tcbs[1];
+	}else if (i < ThreadNum){
+		tcbs[i-1].next=&tcbs[i+1];
+	}else if(i == ThreadNum){
+		tcbs[i-1].next = &tcbs[0];
 	}
 	
-	
-	*/
-	
-	// return control by calling OS_Suspend();.
+	// enabling interrupts again
+	EndCritical(status);
+
+	//Still reading up on this
 	OS_Suspend();
+	// -------Nat's code above-------
 }	
 
 //******** OS_AddPeriodicThread *************** 
