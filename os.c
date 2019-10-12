@@ -213,10 +213,11 @@ void OS_Kill(void){
   status = StartCritical();
 	
 	// 4. how do I mark it as free, is it simply 
+	int i = OS_Id();
+	tcbs[i].available = 1;
 	
 	// 5. the part below focuses on eliminating the current thread from the linked list
-	int i = ThreadNum;
-	if(Os_Id<ThreadNum){ 
+	if(i<ThreadNum){ 
 		tcbs[i-1].next = &tcbs[i+1];
 	}else if(Os_Id==ThreadNum){
 		tcbs[i-1].next = &tcbs[0];
@@ -262,7 +263,8 @@ int OS_AddPeriodicThread(void(*task)(void),
 //   this function and OS_TimeDifference have the same resolution and precision 
 unsigned long OS_Time(void) {
 	// Your code here
-	return 1;
+	
+	return (long) (TIMER2_TBR_R) ;
 }
 
 // ******** OS_TimeDifference ************
@@ -273,8 +275,11 @@ unsigned long OS_Time(void) {
 // It is ok to change the resolution and precision of this function as long as 
 //   this function and OS_Time have the same resolution and precision 
 unsigned long OS_TimeDifference(unsigned long start, unsigned long stop) {
-	// Your code here
-	return 1;
+	// your code here
+	if(stop > start)
+		return (long) (stop - start);
+	else 	
+		return (long) (0x0000FFFF -  (start - stop));
 }
 
 // Ms time system
