@@ -113,12 +113,18 @@ void OS_Launch(unsigned long theTimeSlice){
 // input:  none
 // output: none
 void OS_Suspend(void) { 
+/*	if(first_time == 0){
+		stop = OS_Time();
+		Slice = OS_TimeDifference(start, stop);
+		first_time++;
+	}
+*/
 	// Your code here
 	// the bottom order is correct, 2 then 1. 
 	// 2) need to make sure the next thread starts with a new time slice (what's a time slice?)
 	NVIC_ST_CURRENT_R = 0; // reset counter so there is no extra time // setting the whole register equal to zero.
 	// 1) need to trigger SysTick interrupt trigger <-- DONE
-	NVIC_INT_CTRL_R = 0x04000000; 
+	NVIC_INT_CTRL_R |= 0x04000000; 
 }
 
 //******** OS_AddThreads ***************
@@ -157,12 +163,11 @@ static uint32_t ThreadNum = 0;
 int OS_AddThread(void(*task)(void), unsigned long stackSize, unsigned long priority) {
 	
 	int32_t status;
-  status = StartCritical();
-	uint32_t i = ThreadNum;
+	uint32_t i = 0;
+	uint32_t k = 0;
 	// all start off as 1 as empty
 	// 0 means they are full (for available)
-  
-	while(tcbs[i].available == 0){
+		while(tcbs[i].available == 0){
 		if(i == NUMTHREADS){ // we return 0 if problem happened
 			return 0;
 		}
@@ -170,13 +175,22 @@ int OS_AddThread(void(*task)(void), unsigned long stackSize, unsigned long prior
 	}
 	
 	ThreadNum = i;
+  
+	status = StartCritical();
+  
 	tcbs[i-1].next = &tcbs[i];
 	tcbs[i].next = &tcbs[0];
 	
   SetInitialStack(i); Stacks[i][STACKSIZE-2] = (int32_t)(task); // PC
 	
 	tcbs[i].available = 0; // 0 means it has been created... this is because of the implementation method. 
-  EndCritical(status);
+ 
+while(tcbs[k].available == 1){ // Set RunPt to the first thread ready 
+	k++;
+}
+	RunPt = &tcbs[k];
+	
+EndCritical(status);
 	
   return 1;               // Successful
 }
@@ -266,23 +280,34 @@ int OS_AddPeriodicThread(void(*task)(void),
 unsigned long OS_Time(void) {
 	// Your code here
 	
-	return (long) (TIMER2_TBR_R) ;
+	return (TIMER3_TAILR_R-TIMER3_TAV_R) ; // Returns current value in register
+																				//  for Timer 3
 }
 
 // ******** OS_TimeDifference ************
 // Calculates difference between two times
 // Inputs:  two times measured with OS_Time
-// Outputs: time difference in 12.5ns units 
+// Outputs: time difference in 12.5ns units  // one over 80MHZ ===> timer frequency
 // The time resolution should be less than or equal to 1us, and the precision at least 12 bits
 // It is ok to change the resolution and precision of this function as long as 
 //   this function and OS_Time have the same resolution and precision 
+
+// Time difference is the time between 
 unsigned long OS_TimeDifference(unsigned long start, unsigned long stop) {
 	// your code here
-	if(stop > start)
-		return (long) (stop - start);
-	else 	
-		return (long) (0x0000FFFF -  (start - stop));
-}
+	// For counting down scenario
+//		if (stop > start){
+//			return (0xFFFFFFFF + (start-stop));
+//			} else{
+//					return (start-stop);
+//			}
+	// For counting up scenario
+		if (start > stop){
+			return (0xFFFFFFFF + (stop-start));
+			} else{
+					return (stop-start);
+			}
+		}
 
 // Ms time system
 static uint32_t MSTime;
@@ -293,6 +318,7 @@ static uint32_t MSTime;
 // You are free to change how this works
 void OS_ClearMsTime(void) {
 	// Your code here
+	MSTime = 0;
 }
 
 // ******** OS_MsTime ************
@@ -303,7 +329,8 @@ void OS_ClearMsTime(void) {
 // It is ok to make the resolution to match the first call to OS_AddPeriodicThread
 unsigned long OS_MsTime(void) {
 	// Your code here
-	return 1;
+	
+	return (MSTime);
 }
 
 void Scheduler(void){
@@ -373,6 +400,7 @@ void InitTimer2A(unsigned long period) {
 void Timer2A_Handler(void){ 	
 	TIMER2_ICR_R = TIMER_ICR_TATOCINT;// acknowledge timer2A timeout
 	// Your code here
+	MSTime++;
 }
 
 void InitTimer3A(void){

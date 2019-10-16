@@ -15,16 +15,32 @@
 #include "PORTE.h"
 
 unsigned long NumCreated;   // Number of foreground threads created
+int CS_Start, CS_Stop, CS_Time; // Variables to calculate context switch (time bw end of one thread and start of second thread)
+int TS_Start, TS_End, TS_Time; // Variables to calculate thread switch (end to start of one thread)
+int TP_S, TP_F; // Variables to calculate thread frequency
+int start, stop, Slice; 
+int first_time = 0;
 
 //******************* Measurement of context switch time **********
 // Run this to measure the time it takes to perform a task switch
+int TS_Start=0, TS_End=0, TS_Time, TS_Time_Gap; // Variables to calculate thread switch (end to start of one thread)
+
 void Thread8(void){       // only thread running
+	 
   while(1){
+		TS_Start = OS_Time();
     PE0 ^= 0x01;      // debugging profile  
-  }
+		TS_Time = OS_TimeDifference(TS_End, TS_Start);
+		if(TS_Time >0x16){
+			TS_Time_Gap=TS_Time;
+		}
+		TS_End = OS_Time();
+	}
+	
+	
 }
 
-int Testmain0(void){       // Testmain0
+int main(void){       // Testmain0
   PortE_Init();
   OS_Init();           // initialize, disable interrupts
   NumCreated = 0 ;
@@ -42,17 +58,26 @@ unsigned long Count4;   // number of times thread4 loops
 unsigned long Count5;   // number of times thread5 loops
 
 void Thread1(void){
-  Count1 = 0;          
+  Count1 = 0;
   for(;;){
+		start = OS_Time();
     PE0 ^= 0x01;       // heartbeat
     Count1++;
-    OS_Suspend();      // cooperative multitasking
+		CS_Start = OS_Time(); // start for context time; end for slice time
+	  OS_Suspend();      // cooperative multitasking
   }
 }
+
+int tester = 0;
+
 void Thread2(void){
-  Count2 = 0;          
+	Count2 = 0;          
   for(;;){
-    PE1 ^= 0x02;       // heartbeat
+    CS_Stop = OS_Time(); // context end
+		Slice = OS_TimeDifference (start,CS_Start); // Slice time difference
+		CS_Time = OS_TimeDifference (CS_Start, CS_Stop); // context time difference
+		//	CS time =1.3875 microseconds for context switch	
+		PE1 ^= 0x02;       // heartbeat
     Count2++;
     OS_Suspend();      // cooperative multitasking
   }
@@ -66,7 +91,7 @@ void Thread3(void){
   }
 }
 
-int main(void){  // Testmain1
+int Testmain1(void){  // Testmain1
   OS_Init();          // initialize, disable interrupts
   PortE_Init();       // profile user threads
   NumCreated = 0 ;
@@ -81,18 +106,33 @@ int main(void){  // Testmain1
 //*******************Second TEST**********
 // Preemptive thread scheduler
 void Thread1b(void){
-  Count1 = 0;          
+  Count1 = 0;
+	start = OS_Time(); // Start for time slice	
   for(;;){
     PE0 ^= 0x01;       // heartbeat
     Count1++;
+		CS_Start = OS_Time(); // for context time
   }
 }
 void Thread2b(void){
-  Count2 = 0;          
-  for(;;){
+//	start =  OS_Time(); //Time slice start
+//	CS_Stop = OS_Time(); // context end
+//	CS_Time = OS_TimeDifference(CS_Start, CS_Stop); // context time difference
+	// CS_Start = OS_Time(); // for context time
+	CS_Stop = OS_Time(); // context end
+	Slice = OS_TimeDifference(start,CS_Start); // Slice time difference
+  
+	Count2 = 0;          
+  CS_Stop = OS_Time(); // context end
+	CS_Time = OS_TimeDifference (CS_Start, CS_Stop); // context time difference
+	//	CS time =1.3875 microseconds for context switch	
+	for(;;){
+		
     PE1 ^= 0x02;       // heartbeat
     Count2++;
   }
+	
+	
 }
 void Thread3b(void){
   Count3 = 0;          
